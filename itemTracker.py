@@ -8,6 +8,7 @@ import time
 CHANNEL_ID = 701225984824705047
 bot = commands.Bot(command_prefix="!", intents=discord.Intents.all())
 BOT_TOKEN= open("botToken").read()
+HELP_MESSAGE = open("help.txt").read()
 
 taskIds = {}
 MAX_TASK = 50
@@ -66,22 +67,54 @@ async def on_ready():
     
 @bot.command()
 async def track(ctx,*arr):
+    channel = bot.get_channel(ctx.channel.id)
     if (arr[0] == "start"):
-        await start(ctx, *arr)
+        await start(ctx, channel, *arr)
     elif (arr[0] == "stop"):
         await stopTask(ctx, (int(arr[1])))
     elif (arr[0] == "all"):
         print("all")
     elif (arr[0] == "refined"):
-        await refined(ctx, arr[1], arr[2])
+        await refined(ctx, arr[1], arr[2], channel)
+    elif (arr[0] == "help"):
+        await help(ctx, channel)
     else: 
         await ctx.send("Unknown keyword")
+
+async def help(ctx, channel):
+    await channel.send(HELP_MESSAGE)
         
     
-    
+async def init(bldgJSON, channel, message, trackedItemsAndAmount, all):
+    if (all == True):
+        stallID = 0
+    else:
+        for building in bldgJSON:
+                if ("Barter Stall" in building['buildingName']):
+                    for item in building['inventory']:
+                        itemID = item['contents']['item_id']
+                        itemQuantity = item['contents']['quantity']
+                        if (itemID == 11001 and itemQuantity == 3):
+                            stallID = building['entityId']
+                            found = 1
+        if(found == 0):          
+            await channel.send("Sticks not found")
+            return
+    i = 1
+    iters = 0
+    while(1):
+        if(i in taskIds):
+            i += 1
+            iters += 1
+        else:
+            taskIds[i] = bot.loop.create_task(checkStall(trackedItemsAndAmount, stallID, message))
+            await channel.send(f"TaskID: {i}")
+            break
+        if (iters >= MAX_TASK):
+            print("MAX TASKS REACHED")
+            return
 
-async def start(ctx, *arr):
-    channel = bot.get_channel(ctx.channel.id)
+async def start(ctx, channel, *arr):
     i = 1
     trackedItemsAndAmount = {}
     while (i < len(arr) - 1):
@@ -97,41 +130,18 @@ async def start(ctx, *arr):
             print("Unknown item")
             break
         trackedID = nameIDs[item]
-        bldgJSON, itemJSON = getAndParseData()
-        found = 0
-        for building in bldgJSON:
-                if ("Barter Stall" in building['buildingName']):
-                    for item in building['inventory']:
-                        itemID = item['contents']['item_id']
-                        itemQuantity = item['contents']['quantity']
-                        if (itemID == 11001 and itemQuantity == 3):
-                            stallID = building['entityId']
-                            found = 1
-        if(found == 0):          
-          await channel.send("Sticks not found")
-          break
         trackedItemsAndAmount[trackedID] = [0,amount]
     message = await channel.send("Starting tracking...")
-    i = 1
-    iters = 0
-    while(1):
-        if(i in taskIds):
-            i += 1
-            iters += 1
-        else:
-            taskIds[i] = bot.loop.create_task(checkStall(trackedItemsAndAmount, stallID, message))
-            await channel.send(f"TaskID: {i}")
-            break
-        if (iters >= MAX_TASK):
-            print("MAX TASKS REACHED")
-            return
+    bldgJSON, itemJSON = getAndParseData()
+    await init(bldgJSON, channel,message, trackedItemsAndAmount, False)
+    
             
 async def stopTask(ctx, taskID):
     taskIds[taskID].cancel()
     await ctx.send("Task cancelled")
 
-async def refined(ctx, item, tier):
-    acceptedItems = ["cloth", "leather", "planks", "ingots", "bricks", "Journals"]
+async def refined(ctx, item, tier, channel):
+    acceptedItems = ["cloth", "leather", "planks", "ingots", "bricks", "journals"]
     try:
         int(tier)
     except:
@@ -140,8 +150,21 @@ async def refined(ctx, item, tier):
     if (item.lower() not in acceptedItems or int(tier) >= 10):
         await ctx.send("Incorrect item or tier syntax")
     else:
-        resources = codex.getCloth(tier)
-        
+        if(item == "cloth"):
+            resources = codex.getCloth(tier, nameIDs)
+        elif(item == "leather"):
+            resources = codex.getLeather(tier, nameIDs)
+        elif(item == "ingots"):
+            resources = codex.getIngots(tier, nameIDs)
+        elif(item == "planks"):
+            resources = codex.getPlanks(tier, nameIDs)
+        elif(item == "bricks"):
+            resources = codex.getBricks(tier, nameIDs)
+        elif(item == "journals"):
+            resources = codex.getJournals(tier, nameIDs)
+        message = await channel.send("Starting tracking...")
+        bldgJSON, itemJSON = getAndParseData()
+        await init(bldgJSON, channel,message, resources, True)
     
 
     
@@ -150,17 +173,30 @@ async def checkStall(trackedItemAndAmount, stallID, message):
     channel = bot.get_channel(CHANNEL_ID)
     bldgJSON, itemJSON = getAndParseData()
     for building in bldgJSON:
-        if (building['entityId'] == stallID):
+        if (building['entityId'] == stallID or stallID == 0):
             for item in building['inventory']:
                 itemID = str(item['contents']['item_id'])
                 if itemID in trackedItemAndAmount:
                     currAmount = item['contents']['quantity'] + trackedItemAndAmount[itemID][0]
                     limit = trackedItemAndAmount[itemID][1]
-                    trackedItemAndAmount[itemID] = [currAmount, limit]
+                    trackedItemAndAmount[itemID] = [currAmount, limit, trackedItemAndAmount[itemID][2]]
     finalMsg = ""
+    cnt = 0
+    prevTier = 1
     for item,amounts in trackedItemAndAmount.items():
-        finalMsg = finalMsg + "\n" + itemIDs[item] + ":" + str(amounts[0]) + "/" + str(amounts[1]) 
-        trackedItemAndAmount[item] = [0, amounts[1]]
+        if (len(amounts) == 3):    
+            currTier = amounts[2][1]
+            if (int(currTier) != prevTier):
+                finalMsg = finalMsg + "\n\n**`" + amounts[2] + ": " + str(amounts[0]) + "/" + str(amounts[1]) + "`**"
+            else: 
+                finalMsg = finalMsg + "\n**`" + amounts[2] + ": " + str(amounts[0]) + "/" + str(amounts[1]) + "`**" 
+            trackedItemAndAmount[item] = [0, amounts[1], amounts[2]]
+            cnt += 1
+            prevTier = int(currTier)
+            
+        else:
+            finalMsg = finalMsg + "\n`" + itemIDs[item] + ": " + str(amounts[0]) + "/" + str(amounts[1]) + "`" 
+            trackedItemAndAmount[item] = [0, amounts[1]]
     await message.edit(content=finalMsg)
         
                     
