@@ -51,18 +51,18 @@ def start():
         # If current is ADD from barter stall
         if source == "barter_stall" and diff > 0:
             for src, plyr, itm, d in reversed(event_history):
-                #print(f"Player: {plyr} diff:{d} item: {itm} item {item}")
+                print(f"Player: {plyr} diff:{d} item: {itm} item {item}")
                 if itm == item and src == "player" and d == -diff and itemNameToIds[item] in trackedItemsAndAmount:
-                    #print(f"{plyr} added {diff} of {item}aaa")
+                    print(f"{plyr} added {diff} of {item}aaa")
                     contribution_msg_list.append(f"{plyr} added {diff} of {item}")
                     break
 
         # If current is REMOVE from player inventory
         elif source == "player" and diff < 0:
             for src, plyr, itm, d in reversed(event_history):
-                #print(f"Player: {plyr} diff:{d} item: {itm} item {item}")
+                print(f"Player: {plyr} diff:{d} item: {itm} item {item}")
                 if itm == item and src == "barter_stall" and d == -diff and itemNameToIds[item] in trackedItemsAndAmount:
-                    #print(f"{player} added {d} of {item}")
+                    print(f"{player} added {d} of {item}")
                     contribution_msg_list.append(f"{player} added {d} of {item}")
                     break
                 

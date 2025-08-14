@@ -84,8 +84,8 @@ def main():
                             handleInitialSub(temp, stallInventories)
                         
                     else:
-                        with open("inventory2.txt", "w") as f:
-                            f.write(str(data))
+                        # with open("inventory2.txt", "w") as f:
+                        #     f.write(str(data))
                             temp = data['TransactionUpdate']['status']['Committed']['tables'][0]['updates'][0]
                             handleOthersSub(temp, stallInventories)
                             

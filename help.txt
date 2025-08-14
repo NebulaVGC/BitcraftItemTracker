@@ -1,21 +1,10 @@
 Welcome to the item tracking bot! Please use these commands to aid you on your journey in Bitcraft.
 
-`!track set claim {claim}`
-WIP
-
-`!track start "item1" {quantity1} "item2" {quantity2}` 
-This command will track the specified items until they reach a specified amount. You can track multiple items with one command. Make 
-sure to surround the item name with "". The command will first check to find the barter stall which contains exactly 3 sticks. So,
-move the sticks to whichever stall you want to track. The command will also print out a task ID, which can be used to stop tracking
-
-`!track stop {taskID}`
+`/track stop {taskID}`
 This command will stop the tracking of a given task. The taskID is recieved at the end of the start command.
 
-`!track all "item1" {quantity1} "item2" {quantity2}` 
-WIP
-
-`!track refined {item} {tier}`
+`/track refined {item} {tier}`
 This command will track all the needed resources to create the refined materials of a certain item of a certain tier. The items that 
 are allowed are: cloth, ingots, planks, bricks, leather, journals. For example, if you want to track the materials to gather the 
-25 T5 refined planks for the T6 claim upgrade, you would type `!track refined planks 6`. This command tracks from all barter stalls in a claim,
-rather than a single barter stall.
+25 T5 refined planks for the T6 claim upgrade, you would type `/track refined planks 6`. This command tracks from all barter stalls in a claim,
+rather than a single barter stall. Will also show who contributed to the barter stalls.
