@@ -19,3 +19,4 @@ itemNameToIds = {}
 for i in items:
     temp = json.loads(i)
     itemNameToIds[temp['name'].lower()] = temp['id']
+trackedItemsAndAmount = {}

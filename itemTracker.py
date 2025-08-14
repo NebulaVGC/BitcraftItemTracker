@@ -1,5 +1,6 @@
 import asyncio
 from discord.ext import commands, tasks
+from discord import app_commands
 import discord
 import requests
 import json
@@ -7,8 +8,8 @@ import re
 import codex, contribution
 from barterStallTracker import stallInventories, itemIdsToName, itemNameToIds
 import main
-from shared import contribution_msg_list
-bot = commands.Bot(command_prefix="!", intents=discord.Intents.all())
+from shared import contribution_msg_list, trackedItemsAndAmount
+bot = commands.Bot(command_prefix="/", intents=discord.Intents.all())
 BOT_TOKEN= open("botToken").read()
 HELP_MESSAGE = open("help.txt").read()
 
@@ -21,29 +22,54 @@ MAX_TASK = 50
 
 @bot.event
 async def on_ready():
+    await bot.tree.sync()
     print("Check starting inventory")
-    
-@bot.command()
-async def track(ctx,*arr):
+
+# Create a slash command group for /track
+track_group = app_commands.Group(name="track", description="Track-related commands")
+
+@track_group.command(name="refined", description="Start tracking a refined item.")
+async def track_refined(
+    ctx,
+    item: str,
+    tier: app_commands.Range[int, 1, 9]
+):
     channel = bot.get_channel(ctx.channel.id)
-    if (arr[0] == "start"):
-        await start(ctx, channel, *arr)
-    elif (arr[0] == "stop"):
-        await stopTask(ctx, (int(arr[1])))
-    elif (arr[0] == "all"):
-        print("all")
-    elif (arr[0] == "refined"):
-        await refined(ctx, arr[1], arr[2], channel)
-    elif (arr[0] == "help"):
-        await help(ctx, channel)
-    else: 
-        await ctx.send("Unknown keyword")
+    await refined(ctx, item, tier, channel)
+
+@track_group.command(name="stop", description="Stop tracking a task.")
+async def track_stop(
+    ctx,
+    taskid: int
+):
+    await stopTask(ctx, taskid)
+
+@track_group.command(name="help", description="Show help for tracking commands.")
+async def track_help(
+    ctx
+):
+    channel = bot.get_channel(ctx.channel.id)
+    await help(ctx, channel)
+
+# Add the group to the bot's tree
+bot.tree.add_command(track_group)
+
+
+    
+# @track_refined.autocomplete("cmd")
+# async def cmd_autocomplete(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
+#     options = ['refined', 'help']
+#     return [app_commands.Choice(name=option, value=option) for option in options if option.lower().startswith(current.lower())][:25]
+@track_refined.autocomplete("item")
+async def item_autocomplete(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
+    options = ['cloth', 'planks', 'bricks', 'journals', 'ingots', 'leather']
+    return [app_commands.Choice(name=option, value=option) for option in options if option.lower().startswith(current.lower())][:25]
 
 async def help(ctx, channel):
     await channel.send(HELP_MESSAGE)
         
     
-async def init(channel, message, trackedItemsAndAmount, all):
+async def init(channel, message, resources, all):
     # if (all == True):
     #     stallID = 0
     # else:
@@ -66,10 +92,16 @@ async def init(channel, message, trackedItemsAndAmount, all):
             iters += 1
         else:
             #taskIds[i] = [bot.loop.create_task(checkStall(trackedItemsAndAmount, stallID, message, i)), message]
-            printInventories.start(trackedItemsAndAmount, message, i)
-            bot.loop.create_task(asyncio.to_thread(main.start, trackedItemsAndAmount))
-            send_contribution_msg.start(channel)
-            #await checkPlayers(trackedItemsAndAmount)
+            if (send_contribution_msg.is_running()):
+                task = bot.loop.create_task(print_inventories_loop(channel, message, resources, i))
+                taskIds[i] = [task, message, resources]
+
+            else:
+                task = bot.loop.create_task(print_inventories_loop(channel, message, resources, i))
+                taskIds[i] = [task, message, resources]
+
+                bot.loop.create_task(asyncio.to_thread(main.start))
+                send_contribution_msg.start(channel)
             break
         if (iters >= MAX_TASK):
             await channel.send("Max tasks reached")
@@ -104,9 +136,15 @@ async def start(ctx, channel, *arr):
             
 async def stopTask(ctx, taskID):
     taskIds[taskID][0].cancel()
+    resources = taskIds[taskID][2]
+    for item in resources:
+        if item in trackedItemsAndAmount and resources[item][1] != trackedItemsAndAmount[item][1]:
+            trackedItemsAndAmount[item][1] = trackedItemsAndAmount[item][1] - resources[item][1]
+        else:
+            trackedItemsAndAmount.pop(item)
     await taskIds[taskID][1].delete()
+    await ctx.response.send_message("Task cancelled", ephemeral=True)
     taskIds.pop(taskID)
-    await ctx.send("Task cancelled")
 
 async def refined(ctx, item, tier, channel):
     acceptedItems = ["cloth", "leather", "planks", "ingots", "bricks", "journals"]
@@ -115,7 +153,7 @@ async def refined(ctx, item, tier, channel):
     except:
         await ctx.send("Incorrect tier syntax")
         return
-    if (item.lower() not in acceptedItems or int(tier) >= 10):
+    if (item.lower() not in acceptedItems or int(tier) >= 10 or int(tier) < 1):
         await ctx.send("Incorrect item or tier syntax")
     else:
         if(item == "cloth"):
@@ -130,38 +168,58 @@ async def refined(ctx, item, tier, channel):
             resources = codex.getBricks(tier, itemNameToIds)
         elif(item == "journals"):
             resources = codex.getJournals(tier, itemNameToIds)
+        await ctx.response.send_message("Processing...", ephemeral=True)
         message = await channel.send("Starting tracking...")
+        for item in resources.keys():
+            if item not in trackedItemsAndAmount:
+                trackedItemsAndAmount[item] = resources[item]
+            elif item in trackedItemsAndAmount:
+                trackedItemsAndAmount[item] = trackedItemsAndAmount[item] + resources[item]
         await init(channel,message, resources, True)
     
 
-@tasks.loop(seconds=2, count=None)
-async def printInventories(trackedItemAndAmount, message, taskID, stallID=0):
-    finalMsg = ""
-    cnt = 0
-    prevTier = 1
-    for item in trackedItemAndAmount.keys():
-        try:
-            trackedItemAndAmount[item] = [stallInventories[item],trackedItemAndAmount[item][1],trackedItemAndAmount[item][2]]
-        except Exception as e:
-            pass
-    for item,amounts in trackedItemAndAmount.items():
-        if (len(amounts) == 3):    
-            currTier = amounts[2][1]
-            if (int(currTier) != prevTier):
-                finalMsg = finalMsg + "\n\n**`" + amounts[2] + ": " + str(amounts[0]) + "/" + str(amounts[1]) + "`**"
-            else: 
-                finalMsg = finalMsg + "\n**`" + amounts[2] + ": " + str(amounts[0]) + "/" + str(amounts[1]) + "`**" 
-            trackedItemAndAmount[item] = [0, amounts[1], amounts[2]]
-            cnt += 1
-            prevTier = int(currTier)
-            
-        else:
-            finalMsg = finalMsg + "\n`" + itemIdsToName[item] + ": " + str(amounts[0]) + "/" + str(amounts[1]) + "`" 
-            trackedItemAndAmount[item] = [0, amounts[1]]
-    finalMsg = finalMsg + f"\nTask ID: {taskID}"
-    await message.edit(content=finalMsg)
+async def print_inventories_loop(channel, message, trackedItemsAndAmountLocal, taskID, stallID=0):
+    id_sent = False
+    while True:
+        finalMsg = ""
+        cnt = 0
+        prevTier = 1
+
+        for item in trackedItemsAndAmountLocal.keys():
+            try:
+                trackedItemsAndAmountLocal[item] = [
+                    stallInventories[item],
+                    trackedItemsAndAmountLocal[item][1],
+                    trackedItemsAndAmountLocal[item][2]
+                ]
+            except:
+                pass
+
+        for item, amounts in trackedItemsAndAmountLocal.items():
+            if len(amounts) == 3:
+                currTier = amounts[2][1]
+                if int(currTier) != prevTier:
+                    finalMsg += f"\n\n**`{amounts[2]}: {amounts[0]}/{amounts[1]}`**"
+                else:
+                    finalMsg += f"\n**`{amounts[2]}: {amounts[0]}/{amounts[1]}`**"
+                trackedItemsAndAmount[item] = [0, amounts[1], amounts[2]]
+                cnt += 1
+                prevTier = int(currTier)
+            else:
+                finalMsg += f"\n`{itemIdsToName[item]}: {amounts[0]}/{amounts[1]}`"
+                trackedItemsAndAmount[item] = [0, amounts[1]]
+
+        # finalMsg += f"\nTask ID: {taskID}"
+        if not id_sent:
+            await channel.send(f"\nTask ID: {taskID}")
+            id_sent = True
+        await message.edit(content=finalMsg)
+
+        await asyncio.sleep(2)
+
         
                     
     
 if (__name__ == "__main__"):
+    
     bot.run(BOT_TOKEN)

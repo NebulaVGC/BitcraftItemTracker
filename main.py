@@ -3,7 +3,7 @@ import queue
 import barterStallTracker
 import playerInventoryTracker
 from collections import defaultdict, deque
-from shared import contribution_msg_list, itemIdsToName, itemNameToIds
+from shared import contribution_msg_list, itemIdsToName, itemNameToIds, trackedItemsAndAmount
 # A thread-safe queue to hold inventory change events
 change_queue = queue.Queue()
 
@@ -25,7 +25,7 @@ def thread_runner(func, source_name):
 
 event_history = deque(maxlen=5)  # keep the last 500 events globally
 
-def start(trackedItemsAndAmounts):
+def start():
         # Inject the callback into both scripts
     barterStallTracker.on_inventory_change = on_change
     playerInventoryTracker.on_inventory_change = on_change
@@ -51,9 +51,9 @@ def start(trackedItemsAndAmounts):
         # If current is ADD from barter stall
         if source == "barter_stall" and diff > 0:
             for src, plyr, itm, d in reversed(event_history):
-                print(f"Player: {plyr} diff:{d} item: {itm} item {item}")
-                if itm == item and src == "player" and d == -diff and itemNameToIds[item] in trackedItemsAndAmounts:
-                    print(f"{plyr} added {diff} of {item}aaa")
+                #print(f"Player: {plyr} diff:{d} item: {itm} item {item}")
+                if itm == item and src == "player" and d == -diff and itemNameToIds[item] in trackedItemsAndAmount:
+                    #print(f"{plyr} added {diff} of {item}aaa")
                     contribution_msg_list.append(f"{plyr} added {diff} of {item}")
                     break
 
@@ -61,8 +61,8 @@ def start(trackedItemsAndAmounts):
         elif source == "player" and diff < 0:
             for src, plyr, itm, d in reversed(event_history):
                 #print(f"Player: {plyr} diff:{d} item: {itm} item {item}")
-                if itm == item and src == "barter_stall" and d == -diff and itemNameToIds[item] in trackedItemsAndAmounts:
-                    print(f"{player} added {d} of {item}")
+                if itm == item and src == "barter_stall" and d == -diff and itemNameToIds[item] in trackedItemsAndAmount:
+                    #print(f"{player} added {d} of {item}")
                     contribution_msg_list.append(f"{player} added {d} of {item}")
                     break
                 

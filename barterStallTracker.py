@@ -79,7 +79,6 @@ def main():
                     
                     data = json.loads(msg)
                     if (initial == True and "InitialSubscription" in data):
-                        print("HI")
                         for i in data['InitialSubscription']['database_update']['tables'][0]['updates'][0]['inserts']:
                             temp = json.loads(i)
                             handleInitialSub(temp, stallInventories)
