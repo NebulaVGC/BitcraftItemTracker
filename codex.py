@@ -8,6 +8,7 @@ tierToName[6] = "peerless"
 tierToName[7] = "ornate"
 tierToName[8] = "pristine"
 tierToName[9] = "magnificient"
+tierToName[9] = "magnificient"
 tierToName[10] = "flawless"
 
 tierToNameAlt2 = {}
@@ -132,6 +133,97 @@ def getIngots(tier, nameIDs):
                     finalResources.pop(item)
     return finalResources
     
+def getPlanks(tier, nameIDs):
+    resources = {}
+    finalResources = {}
+    tier = int(tier)
+    amount = tier * 5
+    while (tier > 0):
+        newItem = f"T{tier} plank"
+        resources[newItem] = amount * 5
+        newBrax = f"T{tier} amber resin"
+        newOil = f"T{tier} crop oil"
+        newVial = f"T{tier} glass vial"
+        resources[newBrax] = amount
+        resources[newOil] = amount
+        resources[newVial] = amount
+        amount = amount * 2
+        tier -= 1
+
+    for i in range(1,10):
+        for item in resources.keys():
+            if(item.find(str(i)) >= 0):
+                if (item.find("crop oil") >= 0 or item.find("resin") >= 0):
+                    newName = item.replace(f"T{i}", tierToNameAlt[i]).lower()
+                else:
+                    newName = item.replace(f"T{i}", tierToName[i]).lower()
+                finalResources[nameIDs[newName]] = [0,resources[item], item]        
+                if (item in finalResources):
+                    finalResources.pop(item)
+    return finalResources
+
+def getBricks(tier, nameIDs):
+    resources = {}
+    finalResources = {}
+    tier = int(tier)
+    amount = tier * 5
+    while (tier > 0):
+        newItem = f"T{tier} brick"
+        resources[newItem] = amount * 5
+        newGypsite = f"T{tier} gypsite"
+        newShells = f"T{tier} crushed shells"
+        resources[newGypsite] = amount
+        resources[newShells] = amount
+        amount = amount * 2
+        tier -= 1
+
+    for i in range(1,10):
+        for item in resources.keys():
+            if(item.find(str(i)) >= 0):
+                if (item.find("shells") >= 0):
+                    tier = item[1]
+                    newName = f"crushed {tierToName[int(tier)]} shells".lower()
+                else:
+                    newName = item.replace(f"T{i}", tierToName[i]).lower()
+                finalResources[nameIDs[newName]] = [0,resources[item], item]        
+                if (item in finalResources):
+                    finalResources.pop(item)
+    return finalResources
+
+def getJournals(tier, nameIDs):
+    resources = {}
+    finalResources = {}
+    tier = int(tier)
+    amount = tier * 5
+    while (tier > 0):
+        newItem = f"T{tier} parchment"
+        resources[newItem] = amount * 10
+        newInk = f"T{tier} ink"
+        newCarvings = f"T{tier} stone carvings"
+        newVials = f"T{tier} glass vial"
+        newPigment = f"T{tier} pigment"
+        newFishOil = f"T{tier} fish oil"
+        resources[newInk] = amount * 10
+        resources[newCarvings] = amount * 5
+        resources[newVials] = amount * 15
+        resources[newPigment] = amount * 10
+        resources[newFishOil] = amount * 25
+        amount = amount * 2
+        tier -= 1
+
+    for i in range(1,10):
+        for item in resources.keys():
+            if(item.find(str(i)) >= 0):
+                if (item.find("ink") >= 0 or item.find("pigment") >= 0 or item.find("fish oil")) >= 0:
+                    newName = item.replace(f"T{i}", tierToNameAlt[i]).lower()
+                elif (item.find("carvings") >= 0):
+                    newName = item.replace(f"T{i}", tierToNameAlt3[i]).lower()
+                else:
+                    newName = item.replace(f"T{i}", tierToName[i]).lower()
+                finalResources[nameIDs[newName]] = [0,resources[item], item]        
+                if (item in finalResources):
+                    finalResources.pop(item)
+    return finalResources
 def getPlanks(tier, nameIDs):
     resources = {}
     finalResources = {}

@@ -150,6 +150,8 @@ async def stopTask(ctx, taskID):
 
 async def refined(ctx, item, tier, channel):
     acceptedItems = ["cloth", "leather", "planks", "ingots", "bricks", "journals"]
+async def refined(ctx, item, tier, channel):
+    acceptedItems = ["cloth", "leather", "planks", "ingots", "bricks", "journals"]
     try:
         int(tier)
     except:
