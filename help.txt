@@ -6,5 +6,5 @@ This command will stop the tracking of a given task. The taskID is recieved at t
 `/track refined {item} {tier}`
 This command will track all the needed resources to create the refined materials of a certain item of a certain tier. The items that 
 are allowed are: cloth, ingots, planks, bricks, leather, journals. For example, if you want to track the materials to gather the 
-25 T5 refined planks for the T6 claim upgrade, you would type `/track refined planks 6`. This command tracks from all barter stalls in a claim,
+25 T5 refined planks for the T6 claim upgrade, you would type `/track refined planks 5`. This command tracks from all barter stalls in a claim,
 rather than a single barter stall. Will also show who contributed to the barter stalls.

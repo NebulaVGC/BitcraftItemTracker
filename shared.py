@@ -7,14 +7,6 @@ itemIdsToName = {}
 for i in items:
     temp = json.loads(i)
     itemIdsToName[temp['id']] = temp['name'].lower()
-    
-
-players = open('players.txt').read()
-players = ast.literal_eval(players)
-playerIdsToName = {}
-for i in players:
-    temp = json.loads(i)
-    playerIdsToName[temp['player_entity_id']] = temp['user_name']
 itemNameToIds = {}
 for i in items:
     temp = json.loads(i)

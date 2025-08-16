@@ -12,7 +12,7 @@ from shared import contribution_msg_list, trackedItemsAndAmount
 bot = commands.Bot(command_prefix="/", intents=discord.Intents.all())
 BOT_TOKEN= open("botToken").read()
 HELP_MESSAGE = open("help.txt").read()
-
+tracked_channels = {}
 taskIds = {}
 MAX_TASK = 50
 # @bot.event
@@ -34,7 +34,7 @@ async def track_refined(
     item: str,
     tier: app_commands.Range[int, 1, 9]
 ):
-    channel = bot.get_channel(ctx.channel.id)
+    channel = await bot.fetch_channel(ctx.channel.id)
     await refined(ctx, item, tier, channel)
 
 @track_group.command(name="stop", description="Stop tracking a task.")
@@ -48,7 +48,7 @@ async def track_stop(
 async def track_help(
     ctx
 ):
-    channel = bot.get_channel(ctx.channel.id)
+    channel = await bot.fetch_channel(ctx.channel.id)
     await help(ctx, channel)
 
 # Add the group to the bot's tree
@@ -93,26 +93,28 @@ async def init(channel, message, resources, all):
         else:
             #taskIds[i] = [bot.loop.create_task(checkStall(trackedItemsAndAmount, stallID, message, i)), message]
             if (send_contribution_msg.is_running()):
-                task = bot.loop.create_task(print_inventories_loop(channel, message, resources, i))
+                tracked_channels[channel.id] = resources
+                task = bot.loop.create_task(print_inventories_loop(message.channel, message, resources, i))
                 taskIds[i] = [task, message, resources]
-
             else:
-                task = bot.loop.create_task(print_inventories_loop(channel, message, resources, i))
+                tracked_channels[channel.id] = resources
+                task = bot.loop.create_task(print_inventories_loop(message.channel, message, resources, i))
+                send_contribution_msg.start(message.channel, resources)
                 taskIds[i] = [task, message, resources]
 
                 bot.loop.create_task(asyncio.to_thread(main.start))
-                send_contribution_msg.start(channel)
             break
         if (iters >= MAX_TASK):
             await channel.send("Max tasks reached")
             return
 @tasks.loop(seconds=2, count=None)
-async def send_contribution_msg(channel):
-        if contribution_msg_list:
-            for msg in contribution_msg_list:
-                await channel.send(msg)
-            contribution_msg_list.clear()
-        
+async def send_contribution_msg(channel, resources):
+            for channel_id, resources in tracked_channels.items():
+                channel = bot.get_channel(channel_id)
+                for msg in contribution_msg_list[:]:
+                    if msg[1] in resources:
+                        await channel.send(msg[0])
+                        contribution_msg_list.remove(msg)
 async def start(ctx, channel, *arr):
     i = 1
     trackedItemsAndAmount = {}
@@ -151,10 +153,10 @@ async def refined(ctx, item, tier, channel):
     try:
         int(tier)
     except:
-        await ctx.send("Incorrect tier syntax")
+        await ctx.response.send_message("Incorrect tier syntax")
         return
     if (item.lower() not in acceptedItems or int(tier) >= 10 or int(tier) < 1):
-        await ctx.send("Incorrect item or tier syntax")
+        await ctx.response.send_message("Incorrect item or tier syntax")
     else:
         if(item == "cloth"):
             resources = codex.getCloth(tier, itemNameToIds)

@@ -28,14 +28,6 @@ for i in items:
     temp = json.loads(i)
     itemNameToIds[temp['name'].lower()] = temp['id']
     
-
-players = open('players.txt').read()
-players = ast.literal_eval(players)
-playerIdsToName = {}
-for i in players:
-    temp = json.loads(i)
-    playerIdsToName[temp['player_entity_id']] = temp['user_name']
-    
 f = open("barterStalls.txt")
 barterIds = []
 for i in f.readlines():
@@ -52,9 +44,6 @@ def main():
 
     
     try:
-        with open("ids.txt") as f:
-            ids = [int(line) for line in f if line.strip()]
-        conditions = " OR ".join(f"owner_entity_id = {i}" for i in ids)
         idString = " OR ".join(f"b.building_description_id = {i}" for i in barterIds)
         with connect(
                 uri.format(scheme='wss', host=host, module=module, endpoint='subscribe'),
